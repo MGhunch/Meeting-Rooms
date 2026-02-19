@@ -38,10 +38,10 @@ const BUSINESS_BLOCK_COLORS: Record<string, { color: string; bg: string }> = {
   Booked:   { color: '#999',    bg: 'rgba(120,120,120,0.12)' },
 }
 
-const TALKING_CALENDAR_ID = 'c_0c184e684570208106c3138b4c83e5bc355894c812276d51ba97377bd4e38671@group.calendar.google.com'
-const BOARD_CALENDAR_ID   = 'c_b1b9fc3c7c8d4482910d0690b45c327588288fdbfa88ad4599f64ba1ab5a0ce1@group.calendar.google.com'
-const TALKING_VIEW_URL    = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(TALKING_CALENDAR_ID)}`
-const BOARD_VIEW_URL      = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(BOARD_CALENDAR_ID)}`
+const TALKING_CALENDAR_ID = process.env.NEXT_PUBLIC_TALKING_CALENDAR_ID!
+const BOARD_CALENDAR_ID   = process.env.NEXT_PUBLIC_BOARD_CALENDAR_ID!
+const TALKING_VIEW_URL    = process.env.NEXT_PUBLIC_TALKING_VIEW_URL!
+const BOARD_VIEW_URL      = process.env.NEXT_PUBLIC_BOARD_VIEW_URL!
 
 const SLOT_START_HOUR = 9
 const SLOT_END_HOUR   = 18
