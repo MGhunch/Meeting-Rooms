@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DayPicker } from 'react-day-picker'
-import 'react-day-picker/src/style.css'
+import 'react-day-picker/style.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
