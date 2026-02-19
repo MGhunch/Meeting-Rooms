@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #141414;
+  --surface: #1c1c1c;
+  --text: #e8e6e1;
+  --text-muted: #777;
+  --text-light: #444;
+  --line: #2a2a2a;
+  --line-light: #1f1f1f;
+
+  --talk-tint: rgba(200, 170, 130, 0.04);
+  --board-tint: rgba(130, 170, 200, 0.04);
+  --talk-hover: rgba(200, 170, 130, 0.10);
+  --board-hover: rgba(130, 170, 200, 0.10);
+
+  --hunch: #d94040;
+  --baker: #c9956b;
+  --navigate: #6b8fc9;
+  --clarity: #7db88a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Instrument Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
