@@ -67,14 +67,16 @@ function todayNZ(): string {
 }
 
 function addDays(dateStr: string, n: number): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
+  const [y, m, day] = dateStr.split('-').map(Number)
+  const d = new Date(y, m - 1, day + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+
 
 function formatDateHeading(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
-  return d.toLocaleDateString('en-NZ', { weekday: 'long', day: 'numeric', month: 'long' })
+  const parts = d.toLocaleDateString('en-NZ', { weekday: 'long', day: 'numeric', month: 'long' })
+  return parts.replace(',', '')
 }
 
 function formatTime12(date: Date): string {
