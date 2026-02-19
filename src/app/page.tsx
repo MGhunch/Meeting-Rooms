@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { DayPicker } from 'react-day-picker'
+import 'react-day-picker/src/style.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -193,6 +195,8 @@ export default function RoomHub() {
   const [modal, setModal]             = useState<ModalState | null>(null)
   const [selectedBusiness, setSelectedBusiness] = useState<Business>('Hunch')
   const [selectedDuration, setSelectedDuration] = useState<Duration>(30)
+  const [showPicker, setShowPicker] = useState(false)
+  const pickerRef = useRef<HTMLDivElement>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -231,10 +235,20 @@ export default function RoomHub() {
     return () => document.removeEventListener('visibilitychange', handler)
   }, [currentDate, fetchData])
 
+  // Close picker on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowPicker(false)
+      }
+    }
+    if (showPicker) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showPicker])
+
   const today   = todayNZ()
-  const maxDate = addDays(today, 7)
   const canBack = currentDate > today
-  const canFwd  = currentDate < maxDate
+  const canFwd  = true
 
   const openModal = (room: Room, slotIndex: number) => {
     setSelectedDuration(30)
@@ -357,8 +371,45 @@ export default function RoomHub() {
           <button style={navBtn(canBack)} onClick={() => canBack && setCurrentDate(addDays(currentDate, -1))}>
             <svg width="18" height="18" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 1L3 5L7 9"/></svg>
           </button>
-          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', minWidth: 240, textAlign: 'center' }}>
-            {formatDateHeading(currentDate)}
+          <div style={{ position: 'relative' }}>
+            <div
+              onClick={() => setShowPicker(p => !p)}
+              style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', minWidth: 240, textAlign: 'center', cursor: 'pointer', textDecoration: showPicker ? 'underline' : 'none', textUnderlineOffset: 3, textDecorationColor: 'var(--line)' }}
+            >
+              {formatDateHeading(currentDate)}
+            </div>
+            {showPicker && (
+              <div ref={pickerRef} style={{
+                position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                marginTop: 8, zIndex: 20,
+                background: '#fff', borderRadius: 10,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)',
+                border: '1px solid var(--line)',
+                padding: 8,
+              }}>
+                <style>{`
+                  .rdp-root { --rdp-accent-color: #1a1a1a; --rdp-accent-background-color: rgba(26,26,26,0.08); --rdp-day-height: 36px; --rdp-day-width: 36px; --rdp-day_button-border-radius: 6px; font-family: 'Instrument Sans', sans-serif; font-size: 13px; }
+                  .rdp-month_caption { font-size: 13px; font-weight: 600; }
+                  .rdp-nav button { color: #999; }
+                `}</style>
+                <DayPicker
+                  mode="single"
+                  selected={new Date(currentDate + 'T00:00:00')}
+                  onSelect={(day) => {
+                    if (day) {
+                      const y = day.getFullYear()
+                      const m = String(day.getMonth() + 1).padStart(2, '0')
+                      const d = String(day.getDate()).padStart(2, '0')
+                      setCurrentDate(`${y}-${m}-${d}`)
+                      setShowPicker(false)
+                    }
+                  }}
+                  disabled={[
+                    { before: new Date(today + 'T00:00:00') },
+                  ]}
+                />
+              </div>
+            )}
           </div>
           <button style={navBtn(canFwd)} onClick={() => canFwd && setCurrentDate(addDays(currentDate, 1))}>
             <svg width="18" height="18" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 1L7 5L3 9"/></svg>
