@@ -4,8 +4,8 @@ import { JWT } from 'google-auth-library'
 import { toZonedTime, fromZonedTime } from 'date-fns-tz'
 
 const TIMEZONE = process.env.TIMEZONE || 'Pacific/Auckland'
-const TALKING_CALENDAR_ID = process.env.TALKING_CALENDAR_ID!
-const BOARD_CALENDAR_ID = process.env.BOARD_CALENDAR_ID!
+const TALKING_CALENDAR_ID = (process.env.NEXT_PUBLIC_TALKING_CALENDAR_ID || process.env.TALKING_CALENDAR_ID)!
+const BOARD_CALENDAR_ID = (process.env.NEXT_PUBLIC_BOARD_CALENDAR_ID || process.env.BOARD_CALENDAR_ID)!
 const WINDOW_START = process.env.BOOKING_WINDOW_START || '09:00'
 const WINDOW_END = process.env.BOOKING_WINDOW_END || '18:00'
 
