@@ -8,31 +8,13 @@ import 'react-day-picker/style.css'
 
 type Business = 'Baker' | 'Clarity' | 'Hunch' | 'Navigate'
 type Room = 'talking' | 'board'
-type Duration = 30 | 60 | 120
+type Duration = 30 | 60 | 'longer'
+type ModalState = 'booking' | 'confirmed'
 
-interface BusyBlock {
-  start: string
-  end: string
-  title: string
-}
-
-interface RoomData {
-  busyBlocks: BusyBlock[]
-  freeNow: boolean
-  nextAvailable: string | null
-  error?: string
-}
-
-interface AvailabilityData {
-  talkingRoom: RoomData
-  boardRoom: RoomData
-  date: string
-}
-
-interface ModalState {
-  room: Room
-  slotStart: Date
-}
+interface BusyBlock { start: string; end: string; title: string }
+interface RoomData { busyBlocks: BusyBlock[]; freeNow: boolean; nextAvailable: string | null; error?: string }
+interface AvailabilityData { talkingRoom: RoomData; boardRoom: RoomData; date: string }
+interface BookingTarget { room: Room; slotStart: Date }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -74,7 +56,6 @@ function addDays(dateStr: string, n: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-
 function formatDateHeading(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
   const parts = d.toLocaleDateString('en-NZ', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -89,48 +70,32 @@ function formatTime12(date: Date): string {
 
 function slotIndexToDate(dateStr: string, slotIndex: number): Date {
   const totalMins = SLOT_START_HOUR * 60 + slotIndex * 30
-  const h = Math.floor(totalMins / 60)
-  const m = totalMins % 60
+  const h = Math.floor(totalMins / 60), m = totalMins % 60
   return new Date(`${dateStr}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00+13:00`)
 }
 
-function slotLabel(slotIndex: number): { label: string; isHour: boolean } {
-  const totalMins = SLOT_START_HOUR * 60 + slotIndex * 30
-  const h = Math.floor(totalMins / 60)
-  const m = totalMins % 60
-  const isHour = m === 0
+function slotLabel(i: number): { label: string; isHour: boolean } {
+  const totalMins = SLOT_START_HOUR * 60 + i * 30
+  const h = Math.floor(totalMins / 60), m = totalMins % 60
   const h12 = h > 12 ? h - 12 : h
-  return { label: isHour ? `${h12}.00` : '', isHour }
+  return { label: m === 0 ? `${h12}.00` : '', isHour: m === 0 }
 }
 
-function isMidday(slotIndex: number): boolean { return slotIndex === 7 }
+function isMidday(i: number): boolean { return i === 7 }
 
-function isSlotBusy(dateStr: string, slotIndex: number, busyBlocks: BusyBlock[]): BusyBlock | null {
-  const slotStart = slotIndexToDate(dateStr, slotIndex)
-  const slotEnd   = slotIndexToDate(dateStr, slotIndex + 1)
-  for (const block of busyBlocks) {
-    const bs = new Date(block.start), be = new Date(block.end)
-    if (bs < slotEnd && be > slotStart) return block
+function isSlotBusy(dateStr: string, i: number, blocks: BusyBlock[]): BusyBlock | null {
+  const s = slotIndexToDate(dateStr, i), e = slotIndexToDate(dateStr, i + 1)
+  for (const b of blocks) {
+    if (new Date(b.start) < e && new Date(b.end) > s) return b
   }
   return null
 }
 
-function isSlotBlockStart(dateStr: string, slotIndex: number, busyBlocks: BusyBlock[]): BusyBlock | null {
-  const slotStart = slotIndexToDate(dateStr, slotIndex)
-  for (const block of busyBlocks) {
-    const bs = new Date(block.start)
-    if (bs >= slotStart && bs < slotIndexToDate(dateStr, slotIndex + 1)) return block
-    if (bs <= slotStart && new Date(block.end) > slotStart && slotIndex === 0) return block
-  }
-  return null
-}
-
-function blockHeightSlots(dateStr: string, slotIndex: number, block: BusyBlock): number {
-  const slotStart = slotIndexToDate(dateStr, slotIndex)
-  const be = new Date(block.end), bs = new Date(block.start)
-  const effectiveStart = slotStart > bs ? slotStart : bs
-  const slots = Math.ceil((be.getTime() - effectiveStart.getTime()) / (30 * 60 * 1000))
-  return Math.max(1, slots)
+function blockHeightSlots(dateStr: string, i: number, block: BusyBlock): number {
+  const slotStart = slotIndexToDate(dateStr, i)
+  const bs = new Date(block.start), be = new Date(block.end)
+  const eff = slotStart > bs ? slotStart : bs
+  return Math.max(1, Math.ceil((be.getTime() - eff.getTime()) / (30 * 60 * 1000)))
 }
 
 function extractBusiness(title: string): string {
@@ -145,15 +110,35 @@ function extractBusiness(title: string): string {
 function buildGCalUrl(room: Room, start: Date, durationMins: number, business: Business): string {
   const end = new Date(start.getTime() + durationMins * 60_000)
   const calendarId = room === 'talking' ? TALKING_CALENDAR_ID : BOARD_CALENDAR_ID
-  const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\\.\\d{3}/, '')
+  const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
   const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: `[${business}]`,
-    dates: `${fmt(start)}/${fmt(end)}`,
-    add: calendarId,
-    details: 'Booked via RoomHub',
+    action: 'TEMPLATE', text: `[${business}]`,
+    dates: `${fmt(start)}/${fmt(end)}`, add: calendarId, details: 'Booked via RoomHub',
   })
   return `https://calendar.google.com/calendar/render?${params.toString()}`
+}
+
+function downloadICS(room: Room, start: Date, durationMins: number, business: Business, dateStr: string) {
+  const end = new Date(start.getTime() + durationMins * 60_000)
+  const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+  const roomName = room === 'talking' ? 'Talking Room' : 'Board Room'
+  const ics = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//RoomHub//EN',
+    'BEGIN:VEVENT',
+    `DTSTART:${fmt(start)}`,
+    `DTEND:${fmt(end)}`,
+    `SUMMARY:[${business}] ${roomName}`,
+    `DESCRIPTION:Booked via RoomHub`,
+    `LOCATION:${roomName}`,
+    'END:VEVENT', 'END:VCALENDAR',
+  ].join('\r\n')
+  const blob = new Blob([ics], { type: 'text/calendar' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href = url
+  a.download = `${roomName.replace(' ', '-')}-${dateStr}.ics`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -186,18 +171,21 @@ function BoardIcon() {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function RoomHub() {
-  const [currentDate, setCurrentDate] = useState<string>(todayNZ())
-  const [data, setData]               = useState<AvailabilityData | null>(null)
-  const [loading, setLoading]         = useState(true)
-  const [modal, setModal]             = useState<ModalState | null>(null)
+  const [currentDate, setCurrentDate]           = useState<string>(todayNZ())
+  const [data, setData]                         = useState<AvailabilityData | null>(null)
+  const [loading, setLoading]                   = useState(true)
+  const [booking, setBooking]                   = useState<BookingTarget | null>(null)
+  const [modalState, setModalState]             = useState<ModalState>('booking')
+  const [isFlipped, setIsFlipped]               = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<Business>('Hunch')
   const [selectedDuration, setSelectedDuration] = useState<Duration>(30)
-  const [showPicker, setShowPicker] = useState(false)
+  const [showPicker, setShowPicker]             = useState(false)
+  const [booking_error, setBookingError]        = useState<string | null>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('roomhub-business') as Business | null
@@ -211,14 +199,10 @@ export default function RoomHub() {
 
   const fetchData = useCallback(async (date: string) => {
     try {
-      const res = await fetch(`/api/availability?date=${date}`)
+      const res  = await fetch(`/api/availability?date=${date}`)
       const json = await res.json()
       setData(json)
-    } catch (e) {
-      console.error('Fetch error', e)
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { console.error(e) } finally { setLoading(false) }
   }, [])
 
   useEffect(() => {
@@ -235,12 +219,9 @@ export default function RoomHub() {
     return () => document.removeEventListener('visibilitychange', handler)
   }, [currentDate, fetchData])
 
-  // Close picker on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setShowPicker(false)
-      }
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setShowPicker(false)
     }
     if (showPicker) document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -252,38 +233,67 @@ export default function RoomHub() {
 
   const openModal = (room: Room, slotIndex: number) => {
     setSelectedDuration(30)
-    setModal({ room, slotStart: slotIndexToDate(currentDate, slotIndex) })
+    setBookingError(null)
+    setIsFlipped(false)
+    setModalState('booking')
+    setBooking({ room, slotStart: slotIndexToDate(currentDate, slotIndex) })
   }
 
-  const handleBook = () => {
-    if (!modal) return
-    const url = buildGCalUrl(modal.room, modal.slotStart, selectedDuration, selectedBusiness)
-    window.open(url, '_blank')
-    setModal(null)
+  const handleBookNow = async () => {
+    if (!booking) return
+    if (selectedDuration === 'longer') {
+      window.open(buildGCalUrl(booking.room, booking.slotStart, 120, selectedBusiness), '_blank')
+      setBooking(null)
+      return
+    }
+    setBookingError(null)
+    try {
+      const res = await fetch('/api/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          room: booking.room,
+          start: booking.slotStart.toISOString(),
+          durationMins: selectedDuration,
+          business: selectedBusiness,
+        }),
+      })
+      if (!res.ok) throw new Error('Booking failed')
+      setIsFlipped(true)
+      setTimeout(() => setModalState('confirmed'), 220)
+      fetchData(currentDate)
+    } catch {
+      setBookingError('Something went wrong. Please try again.')
+    }
+  }
+
+  const handleICS = () => {
+    if (!booking || selectedDuration === 'longer') return
+    downloadICS(booking.room, booking.slotStart, selectedDuration as number, selectedBusiness, currentDate)
   }
 
   const renderSlots = (room: Room) => {
     const rd = room === 'talking' ? data?.talkingRoom : data?.boardRoom
-    const busyBlocks = rd?.busyBlocks || []
-    const tint = room === 'talking' ? 'var(--talk-tint)' : 'var(--board-tint)'
-    const hover = room === 'talking' ? 'var(--talk-hover)' : 'var(--board-hover)'
-    const rendered: React.ReactNode[] = []
-    const seen = new Set<string>()
+    const blocks = rd?.busyBlocks || []
+    const tint   = room === 'talking' ? 'var(--talk-tint)' : 'var(--board-tint)'
+    const hover  = room === 'talking' ? 'var(--talk-hover)' : 'var(--board-hover)'
+    const seen   = new Set<string>()
+    const out: React.ReactNode[] = []
 
     for (let i = 0; i < TOTAL_SLOTS; i++) {
-      const busyBlock = isSlotBusy(currentDate, i, busyBlocks)
-      const isBusy = !!busyBlock
-      const isHourStart = i % 2 === 0
+      const busyBlock  = isSlotBusy(currentDate, i, blocks)
+      const isBusy     = !!busyBlock
+      const isHour     = i % 2 === 0
       const isMiddaySlot = isMidday(i)
-      const isLastSlot = i === TOTAL_SLOTS - 1
+      const isLast     = i === TOTAL_SLOTS - 1
 
-      let blockLabel: React.ReactNode = null
+      let label: React.ReactNode = null
       if (isBusy && busyBlock && !seen.has(busyBlock.start)) {
         seen.add(busyBlock.start)
-        const h = blockHeightSlots(currentDate, i, busyBlock) * 20 - 4
+        const h   = blockHeightSlots(currentDate, i, busyBlock) * 20 - 4
         const biz = extractBusiness(busyBlock.title)
-        const c = BUSINESS_BLOCK_COLORS[biz] || BUSINESS_BLOCK_COLORS['Booked']
-        blockLabel = (
+        const c   = BUSINESS_BLOCK_COLORS[biz] || BUSINESS_BLOCK_COLORS['Booked']
+        label = (
           <div style={{
             position: 'absolute', left: 3, right: 3, top: 2, height: h,
             borderRadius: 4, background: c.bg, color: c.color,
@@ -296,71 +306,77 @@ export default function RoomHub() {
         )
       }
 
-      rendered.push(
-        <div
-          key={`${room}-${i}`}
-          onClick={() => !isBusy && !isLastSlot && openModal(room, i)}
+      out.push(
+        <div key={`${room}-${i}`}
+          onClick={() => !isBusy && !isLast && openModal(room, i)}
           style={{
             height: 20, position: 'relative', background: tint,
-            borderTop: isHourStart ? '1px solid var(--line)' : 'none',
-            borderBottom: isMiddaySlot ? '1px solid var(--line)' : isLastSlot ? 'none' : '1px solid var(--line-light)',
-            cursor: isBusy || isLastSlot ? 'default' : 'pointer',
-            transition: 'background 0.1s',
+            borderTop: isHour ? '1px solid var(--line)' : 'none',
+            borderBottom: isMiddaySlot ? '1px solid var(--line)' : isLast ? 'none' : '1px solid var(--line-light)',
+            cursor: isBusy || isLast ? 'default' : 'pointer', transition: 'background 0.1s',
           }}
-          onMouseEnter={e => { if (!isBusy && !isLastSlot) (e.currentTarget as HTMLDivElement).style.background = hover }}
+          onMouseEnter={e => { if (!isBusy && !isLast) (e.currentTarget as HTMLDivElement).style.background = hover }}
           onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = tint }}
         >
-          {blockLabel}
+          {label}
         </div>
       )
     }
-    return rendered
+    return out
   }
 
   const renderTimeLabels = () => {
-    const labels: React.ReactNode[] = []
+    const out: React.ReactNode[] = []
     for (let i = 0; i < TOTAL_SLOTS; i++) {
       const { label, isHour } = slotLabel(i)
-      const isMiddaySlot = isMidday(i)
-      labels.push(
+      out.push(
         <div key={`t-${i}`} style={{
-          fontSize: isHour ? 11 : 10,
-          color: isHour ? 'var(--text-muted)' : 'var(--text-light)',
-          fontWeight: isHour ? 500 : 400,
-          height: 20, display: 'flex', alignItems: 'flex-start',
+          fontSize: isHour ? 11 : 10, color: isHour ? 'var(--text-muted)' : 'var(--text-light)',
+          fontWeight: isHour ? 500 : 400, height: 20, display: 'flex', alignItems: 'flex-start',
           paddingTop: 1, paddingLeft: 2,
           borderTop: i % 2 === 0 ? '1px solid var(--line)' : 'none',
-          borderBottom: isMiddaySlot ? '1px solid var(--line)' : '1px solid var(--line-light)',
+          borderBottom: isMidday(i) ? '1px solid var(--line)' : '1px solid var(--line-light)',
           fontVariantNumeric: 'tabular-nums',
         }}>
           {label}
         </div>
       )
     }
-    return labels
+    return out
   }
 
-  const modalRoomName = modal?.room === 'talking' ? 'Talking Room' : 'Board Room'
-  const modalTimeStr  = modal ? formatTime12(modal.slotStart) : ''
+  const roomName = booking?.room === 'talking' ? 'Talking Room' : 'Board Room'
+  const timeStr  = booking ? formatTime12(booking.slotStart) : ''
 
-  // nav button style
-  const navBtn = (enabled: boolean): React.CSSProperties => ({
-    background: 'none', border: 'none',
-    color: 'var(--text-muted)', cursor: enabled ? 'pointer' : 'default',
-    padding: '4px 8px', borderRadius: 4,
-    opacity: enabled ? 1 : 0.2,
-    display: 'flex', alignItems: 'center', transition: 'all 0.15s',
+  const navBtn = (on: boolean): React.CSSProperties => ({
+    background: 'none', border: 'none', color: 'var(--text-muted)',
+    cursor: on ? 'pointer' : 'default', padding: '4px 8px', borderRadius: 4,
+    opacity: on ? 1 : 0.2, display: 'flex', alignItems: 'center', transition: 'all 0.15s',
   })
 
-  // col header style
-  const colHeader = (room: 'talk' | 'board'): React.CSSProperties => ({
-    padding: '12px 12px',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-    background: room === 'talk' ? 'var(--talk-tint)' : 'var(--board-tint)',
+  const optBtn = (active: boolean, extra?: React.CSSProperties): React.CSSProperties => ({
+    fontFamily: 'Instrument Sans, sans-serif', fontSize: 12, fontWeight: 600,
+    padding: '7px 0', borderRadius: 6, flex: 1, textAlign: 'center' as const,
+    border: `1.5px solid ${active ? 'var(--text)' : 'var(--line)'}`,
+    background: active ? 'var(--text)' : 'transparent',
+    color: active ? '#fff' : 'var(--text-muted)',
+    cursor: 'pointer', transition: 'all 0.15s', ...extra,
   })
+
+  const bizBtn = (b: Business): React.CSSProperties => {
+    const active = selectedBusiness === b
+    const c = BUSINESS_COLORS[b]
+    return {
+      fontFamily: 'Instrument Sans, sans-serif', fontSize: 12, fontWeight: 600,
+      padding: '7px 0', borderRadius: 6, flex: 1, textAlign: 'center' as const,
+      border: `1.5px solid ${active ? c.border : 'var(--line)'}`,
+      background: active ? c.bg : 'transparent', color: c.color,
+      cursor: 'pointer', transition: 'all 0.15s',
+    }
+  }
 
   return (
-    <div style={{ maxWidth: 520, margin: '0 auto', padding: '40px 24px 60px' }}>
+    <div style={{ maxWidth: 520, margin: '0 auto', padding: '40px 24px 60px', background: 'var(--bg)' }}>
 
       {/* ── Header ── */}
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
@@ -372,212 +388,231 @@ export default function RoomHub() {
             <svg width="18" height="18" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 1L3 5L7 9"/></svg>
           </button>
           <div style={{ position: 'relative' }}>
-            <div
-              onClick={() => setShowPicker(p => !p)}
-              style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', minWidth: 240, textAlign: 'center', cursor: 'pointer', textDecoration: showPicker ? 'underline' : 'none', textUnderlineOffset: 3, textDecorationColor: 'var(--line)' }}
-            >
+            <div onClick={() => setShowPicker(p => !p)} style={{
+              fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', minWidth: 240, textAlign: 'center',
+              cursor: 'pointer', textDecoration: showPicker ? 'underline' : 'none',
+              textUnderlineOffset: 3, textDecorationColor: 'var(--line)',
+            }}>
               {formatDateHeading(currentDate)}
             </div>
             {showPicker && (
               <div ref={pickerRef} style={{
                 position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-                marginTop: 8, zIndex: 20,
-                background: '#fff', borderRadius: 10,
-                boxShadow: '0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)',
-                border: '1px solid var(--line)',
-                padding: 8,
+                marginTop: 8, zIndex: 20, background: '#fff', borderRadius: 10,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.10)', border: '1px solid var(--line)', padding: 8,
               }}>
-                <style>{`
-                  .rdp-root { --rdp-accent-color: #1a1a1a; --rdp-accent-background-color: rgba(26,26,26,0.08); --rdp-day-height: 36px; --rdp-day-width: 36px; --rdp-day_button-border-radius: 6px; font-family: 'Instrument Sans', sans-serif; font-size: 13px; }
-                  .rdp-month_caption { font-size: 13px; font-weight: 600; }
-                  .rdp-nav button { color: #999; }
-                `}</style>
+                <style>{`.rdp-root { --rdp-accent-color: #1a1a1a; --rdp-accent-background-color: rgba(26,26,26,0.08); --rdp-day-height: 36px; --rdp-day-width: 36px; --rdp-day_button-border-radius: 6px; font-family: 'Instrument Sans', sans-serif; font-size: 13px; } .rdp-month_caption { font-size: 13px; font-weight: 600; }`}</style>
                 <DayPicker
                   mode="single"
                   selected={new Date(currentDate + 'T00:00:00')}
                   onSelect={(day) => {
                     if (day) {
-                      const y = day.getFullYear()
-                      const m = String(day.getMonth() + 1).padStart(2, '0')
-                      const d = String(day.getDate()).padStart(2, '0')
+                      const y = day.getFullYear(), m = String(day.getMonth() + 1).padStart(2,'0'), d = String(day.getDate()).padStart(2,'0')
                       setCurrentDate(`${y}-${m}-${d}`)
                       setShowPicker(false)
                     }
                   }}
-                  disabled={[
-                    { before: new Date(today + 'T00:00:00') },
-                  ]}
+                  disabled={[{ before: new Date(today + 'T00:00:00') }]}
                 />
               </div>
             )}
           </div>
-          <button style={navBtn(canFwd)} onClick={() => canFwd && setCurrentDate(addDays(currentDate, 1))}>
+          <button style={navBtn(canFwd)} onClick={() => setCurrentDate(addDays(currentDate, 1))}>
             <svg width="18" height="18" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 1L7 5L3 9"/></svg>
           </button>
         </div>
       </div>
 
       {/* ── Hint ── */}
-      <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginBottom: 28, letterSpacing: '0.1px' }}>
+      <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginBottom: 20, letterSpacing: '0.1px' }}>
         Click a start time to book. Or just jump in if the room is free.
       </div>
 
-      {/* ── Column headers ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr', borderBottom: '1.5px solid var(--text)' }}>
-        <div />
-        <div style={colHeader('talk')}>
-          <TalkingIcon />
-          <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.3px' }}>Talking Room</span>
+      {/* ── White card ── */}
+      <div style={{
+        background: '#fff', borderRadius: 12,
+        boxShadow: '0 4px 24px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04)',
+        overflow: 'hidden', marginBottom: 24,
+      }}>
+        {/* Column headers */}
+        <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr', borderBottom: '1.5px solid var(--text)' }}>
+          <div />
+          <div style={{ padding: '12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--talk-tint)' }}>
+            <TalkingIcon />
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.3px' }}>Talking Room</span>
+          </div>
+          <div style={{ padding: '12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--board-tint)' }}>
+            <BoardIcon />
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.3px' }}>Board Room</span>
+          </div>
         </div>
-        <div style={colHeader('board')}>
-          <BoardIcon />
-          <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.3px' }}>Board Room</span>
-        </div>
-      </div>
 
-      {/* ── Grid ── */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
-      ) : (
+        {/* Grid */}
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr' }}>
+            <div>{renderTimeLabels()}</div>
+            <div style={{ position: 'relative' }}>
+              {data?.talkingRoom.error
+                ? <div style={{ padding: '20px 10px', fontSize: 11, color: 'var(--text-muted)' }}>Could not load calendar</div>
+                : renderSlots('talking')}
+            </div>
+            <div style={{ position: 'relative' }}>
+              {data?.boardRoom.error
+                ? <div style={{ padding: '20px 10px', fontSize: 11, color: 'var(--text-muted)' }}>Could not load calendar</div>
+                : renderSlots('board')}
+            </div>
+            <div style={{ gridColumn: '1 / -1', borderTop: '1.5px solid var(--text)', height: 0 }} />
+          </div>
+        )}
+
+        {/* Footer links inside card */}
         <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr' }}>
-          <div>{renderTimeLabels()}</div>
-          <div style={{ position: 'relative' }}>
-            {data?.talkingRoom.error
-              ? <div style={{ padding: '20px 10px', fontSize: 11, color: 'var(--text-muted)' }}>Could not load calendar</div>
-              : renderSlots('talking')}
-          </div>
-          <div style={{ position: 'relative' }}>
-            {data?.boardRoom.error
-              ? <div style={{ padding: '20px 10px', fontSize: 11, color: 'var(--text-muted)' }}>Could not load calendar</div>
-              : renderSlots('board')}
-          </div>
-          <div style={{ gridColumn: '1 / -1', borderTop: '1.5px solid var(--text)', height: 0 }} />
+          <div />
+          {[TALKING_VIEW_URL, BOARD_VIEW_URL].map((url, i) => (
+            <div key={i} style={{ padding: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <a href={url} target="_blank" rel="noopener noreferrer" style={{
+                fontFamily: 'Instrument Sans, sans-serif', fontSize: 10, fontWeight: 500,
+                color: 'var(--text-muted)', background: 'none', border: '1px solid var(--line)',
+                borderRadius: 3, padding: '4px 10px', letterSpacing: '0.2px', textDecoration: 'none',
+                display: 'inline-flex', alignItems: 'center', gap: 4, transition: 'all 0.15s',
+              }}
+                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text)'; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--text-muted)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-muted)'; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--line)' }}
+              >
+                See the calendar ↗
+              </a>
+            </div>
+          ))}
         </div>
-      )}
-
-      {/* ── Footer links ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr', marginBottom: 32 }}>
-        <div />
-        {[TALKING_VIEW_URL, BOARD_VIEW_URL].map((url, i) => (
-          <div key={i} style={{ padding: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <a href={url} target="_blank" rel="noopener noreferrer" style={{
-              fontFamily: 'Instrument Sans, sans-serif',
-              fontSize: 10, fontWeight: 500, color: 'var(--text-muted)',
-              background: 'none', border: '1px solid var(--line)', borderRadius: 3,
-              padding: '4px 10px', letterSpacing: '0.2px', textDecoration: 'none',
-              display: 'inline-flex', alignItems: 'center', gap: 4, transition: 'all 0.15s',
-            }}
-              onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text)'; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--text-muted)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-muted)'; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--line)' }}
-            >
-              See the calendar ↗
-            </a>
-          </div>
-        ))}
       </div>
 
       {/* ── Page footer ── */}
-      <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-light)', letterSpacing: '0.1px', paddingTop: 16, borderTop: '1px solid var(--line)' }}>
+      <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-light)', letterSpacing: '0.1px' }}>
         This calendar is view only. You&apos;ll go through to Google Calendar to book.
       </div>
 
       {/* ── Modal ── */}
-      {modal && (
+      {booking && (
         <div
-          onClick={() => setModal(null)}
+          onClick={() => setBooking(null)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <div onClick={e => e.stopPropagation()} style={{
-            background: '#fff', borderRadius: 12,
-            padding: '28px 24px 24px', width: 300,
-            boxShadow: '0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)',
-            position: 'relative',
-          }}>
-            {/* × close */}
-            <button onClick={() => setModal(null)} style={{
-              position: 'absolute', top: 14, right: 14,
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text-muted)', padding: 4, borderRadius: 4,
-              display: 'flex', alignItems: 'center', transition: 'color 0.15s',
+          {/* Flip container */}
+          <div style={{ width: 300, perspective: 800 }} onClick={e => e.stopPropagation()}>
+            <div style={{
+              position: 'relative', width: '100%', height: 420,
+              transformStyle: 'preserve-3d',
+              transition: 'transform 0.45s cubic-bezier(0.4,0,0.2,1)',
+              transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
             }}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M3 3l10 10M13 3L3 13"/>
-              </svg>
-            </button>
 
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 4 }}>
-              {modalRoomName}
-            </div>
-            <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-1px', color: 'var(--text)', marginBottom: 2 }}>
-              {modalTimeStr}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 24 }}>
-              {formatDateHeading(currentDate)}
-            </div>
-
-            <div style={{ border: 'none', borderTop: '1px solid var(--line)', margin: '0 -24px 22px' }} />
-
-            {/* How long */}
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8 }}>
-              How long?
-            </div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 22 }}>
-              {([30, 60, 120] as Duration[]).map(d => (
-                <button key={d} onClick={() => setSelectedDuration(d)} style={{
-                  fontFamily: 'Instrument Sans, sans-serif',
-                  fontSize: 12, fontWeight: 600,
-                  padding: '7px 0', borderRadius: 6, flex: 1, textAlign: 'center',
-                  border: `1.5px solid ${selectedDuration === d ? 'var(--text)' : 'var(--line)'}`,
-                  background: selectedDuration === d ? 'var(--text)' : 'transparent',
-                  color: selectedDuration === d ? '#fff' : 'var(--text-muted)',
-                  cursor: 'pointer', transition: 'all 0.15s',
+              {/* FRONT */}
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: '#fff', borderRadius: 12,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)',
+                backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
+                padding: '28px 24px 24px',
+              }}>
+                <button onClick={() => setBooking(null)} style={{
+                  position: 'absolute', top: 14, right: 14, background: 'none', border: 'none',
+                  cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 4, display: 'flex',
                 }}>
-                  {d === 30 ? '30 min' : d === 60 ? '1 hr' : 'Longer'}
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg>
                 </button>
-              ))}
-            </div>
 
-            {/* Who for */}
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8 }}>
-              Who for?
-            </div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 22 }}>
-              {BUSINESSES.map(b => {
-                const active = selectedBusiness === b
-                const c = BUSINESS_COLORS[b]
-                return (
-                  <button key={b} onClick={() => saveBusiness(b)} style={{
-                    fontFamily: 'Instrument Sans, sans-serif',
-                    fontSize: 12, fontWeight: 600,
-                    padding: '7px 0', borderRadius: 6, flex: 1, textAlign: 'center',
-                    border: `1.5px solid ${active ? c.border : 'var(--line)'}`,
-                    background: active ? c.bg : 'transparent',
-                    color: c.color,
-                    cursor: 'pointer', transition: 'all 0.15s',
-                  }}>
-                    {b}
-                  </button>
-                )
-              })}
-            </div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 4 }}>{roomName.toUpperCase()}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-1px', color: 'var(--text)', marginBottom: 2 }}>{timeStr}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 24 }}>{formatDateHeading(currentDate)}</div>
+                <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
 
-            {/* Book button */}
-            <button onClick={handleBook} style={{
-              display: 'block', width: '100%',
-              fontFamily: 'Instrument Sans, sans-serif',
-              fontSize: 13, fontWeight: 600,
-              padding: '13px 16px', border: 'none', borderRadius: 8,
-              background: 'var(--text)', color: '#fff',
-              cursor: 'pointer', letterSpacing: '-0.2px', transition: 'opacity 0.15s',
-            }}
-              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.opacity = '0.8'}
-              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.opacity = '1'}
-            >
-              Save in Calendar →
-            </button>
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8 }}>How long?</div>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
+                  {([30, 60, 'longer'] as Duration[]).map(d => (
+                    <button key={String(d)} onClick={() => setSelectedDuration(d)} style={optBtn(selectedDuration === d)}>
+                      {d === 30 ? '30 min' : d === 60 ? '1 hr' : 'Longer'}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8 }}>Who for?</div>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+                  {BUSINESSES.map(b => (
+                    <button key={b} onClick={() => saveBusiness(b)} style={bizBtn(b)}>{b}</button>
+                  ))}
+                </div>
+
+                {booking_error && <div style={{ fontSize: 11, color: '#d94040', marginBottom: 8, textAlign: 'center' }}>{booking_error}</div>}
+
+                <button onClick={handleBookNow} style={{
+                  display: 'block', width: '100%', fontFamily: 'Instrument Sans, sans-serif',
+                  fontSize: 13, fontWeight: 600, padding: '13px 16px', border: 'none', borderRadius: 8,
+                  background: 'var(--text)', color: '#fff', cursor: 'pointer', transition: 'opacity 0.15s',
+                }}
+                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.opacity = '0.8'}
+                  onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.opacity = '1'}
+                >
+                  {selectedDuration === 'longer' ? 'Book in Google Calendar →' : 'Book now'}
+                </button>
+              </div>
+
+              {/* BACK */}
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: '#fff', borderRadius: 12,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)',
+                backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
+                transform: 'rotateY(180deg)',
+                padding: '28px 24px 24px',
+              }}>
+                <button onClick={() => setBooking(null)} style={{
+                  position: 'absolute', top: 14, right: 14, background: 'none', border: 'none',
+                  cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 4, display: 'flex',
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg>
+                </button>
+
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 4 }}>{roomName.toUpperCase()}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-1px', color: 'var(--text)', marginBottom: 2 }}>{timeStr}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 24 }}>{formatDateHeading(currentDate)}</div>
+                <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
+
+                <div style={{ marginBottom: 20 }}>
+                  {[`${selectedDuration === 30 ? '30 minutes' : selectedDuration === 60 ? '1 hour' : ''}`, `By ${selectedBusiness}`].map((line, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: '1px 0' }}>
+                      <span style={{ color: '#4a9a5e' }}>✓</span> {line}
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
+
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8 }}>Want a reminder?</div>
+                <button onClick={handleICS} style={{
+                  display: 'block', width: '100%', fontFamily: 'Instrument Sans, sans-serif',
+                  fontSize: 12, fontWeight: 600, padding: '9px 0', borderRadius: 6,
+                  border: '1.5px solid var(--line)', background: 'transparent', color: 'var(--text)',
+                  cursor: 'pointer', marginBottom: 8, transition: 'all 0.15s',
+                }}>
+                  Save to my calendar
+                </button>
+                <button onClick={() => setBooking(null)} style={{
+                  display: 'block', width: '100%', fontFamily: 'Instrument Sans, sans-serif',
+                  fontSize: 13, fontWeight: 600, padding: '13px 0', borderRadius: 8,
+                  border: 'none', background: 'var(--text)', color: '#fff',
+                  cursor: 'pointer', transition: 'opacity 0.15s',
+                }}>
+                  Done
+                </button>
+              </div>
+
+            </div>
           </div>
         </div>
       )}
+
     </div>
   )
 }
