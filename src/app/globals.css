@@ -1,23 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #141414;
-  --surface: #1c1c1c;
-  --text: #e8e6e1;
-  --text-muted: #777;
-  --text-light: #444;
-  --line: #2a2a2a;
-  --line-light: #1f1f1f;
+  --bg: #ffffff;
+  --text: #1a1a1a;
+  --text-muted: #999;
+  --text-light: #bbb;
+  --line: #e8e5e0;
+  --line-light: #f0ede8;
 
-  --talk-tint: rgba(200, 170, 130, 0.04);
-  --board-tint: rgba(130, 170, 200, 0.04);
-  --talk-hover: rgba(200, 170, 130, 0.10);
-  --board-hover: rgba(130, 170, 200, 0.10);
+  --talk-tint: rgba(220, 150, 170, 0.10);
+  --board-tint: rgba(80, 130, 210, 0.07);
+  --talk-hover: rgba(220, 150, 170, 0.22);
+  --board-hover: rgba(80, 130, 210, 0.15);
 
   --hunch: #d94040;
-  --baker: #c9956b;
-  --navigate: #6b8fc9;
-  --clarity: #7db88a;
+  --baker: #b87d4b;
+  --navigate: #4a72b8;
+  --clarity: #4a9a5e;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
