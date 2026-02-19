@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
+import { fromZonedTime } from 'date-fns-tz'
+
+const NZ_TZ = 'Pacific/Auckland'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,7 +50,7 @@ const TOTAL_SLOTS     = (SLOT_END_HOUR - SLOT_START_HOUR) * 2
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function todayNZ(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' })
+  return new Date().toLocaleDateString('en-CA', { timeZone: NZ_TZ })
 }
 
 function addDays(dateStr: string, n: number): string {
@@ -64,14 +67,15 @@ function formatDateHeading(dateStr: string): string {
 
 function formatTime12(date: Date): string {
   return date.toLocaleTimeString('en-NZ', {
-    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Pacific/Auckland',
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: NZ_TZ,
   }).replace(':00', '').toLowerCase()
 }
 
 function slotIndexToDate(dateStr: string, slotIndex: number): Date {
   const totalMins = SLOT_START_HOUR * 60 + slotIndex * 30
   const h = Math.floor(totalMins / 60), m = totalMins % 60
-  return new Date(`${dateStr}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00+13:00`)
+  const localStr = `${dateStr}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`
+  return fromZonedTime(localStr, NZ_TZ)
 }
 
 function slotLabel(i: number): { label: string; isHour: boolean } {
