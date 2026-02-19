@@ -311,7 +311,7 @@ export default function RoomHub() {
       const busyBlock = isSlotBusy(currentDate, i, busyBlocks)
       const isBusy = !!busyBlock
       const isHourStart = i % 2 === 0
-      const isMidday = isMidday(i)
+      const isMiddaySlot = isMidday(i)
       const isLastSlot = i === TOTAL_SLOTS - 1
 
       // Is this where a busy block label should be rendered?
@@ -357,7 +357,7 @@ export default function RoomHub() {
             position: 'relative',
             background: tint,
             borderTop: isHourStart ? '1px solid var(--line)' : 'none',
-            borderBottom: isMidday
+            borderBottom: isMiddaySlot
               ? '1px solid var(--line)'
               : isLastSlot
               ? 'none'
@@ -383,7 +383,7 @@ export default function RoomHub() {
     const labels: React.ReactNode[] = []
     for (let i = 0; i < TOTAL_SLOTS; i++) {
       const { label, isHour } = slotLabel(i)
-      const isMidday = isMidday(i)
+      const isMiddaySlot = isMidday(i)
       labels.push(
         <div
           key={`time-${i}`}
@@ -397,7 +397,7 @@ export default function RoomHub() {
             paddingTop: 1,
             paddingLeft: 2,
             borderTop: i % 2 === 0 ? '1px solid var(--line)' : 'none',
-            borderBottom: isMidday ? '1px solid var(--line)' : '1px solid var(--line-light)',
+            borderBottom: isMiddaySlot ? '1px solid var(--line)' : '1px solid var(--line-light)',
             fontVariantNumeric: 'tabular-nums',
           }}
         >
