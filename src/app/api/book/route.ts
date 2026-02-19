@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { JWT } from 'google-auth-library'
 
-const TALKING_CALENDAR_ID = process.env.TALKING_CALENDAR_ID!
-const BOARD_CALENDAR_ID   = process.env.BOARD_CALENDAR_ID!
+const TALKING_CALENDAR_ID = (process.env.NEXT_PUBLIC_TALKING_CALENDAR_ID || process.env.TALKING_CALENDAR_ID)!
+const BOARD_CALENDAR_ID   = (process.env.NEXT_PUBLIC_BOARD_CALENDAR_ID || process.env.BOARD_CALENDAR_ID)!
 const TIMEZONE = process.env.TIMEZONE || 'Pacific/Auckland'
 
 function getAuthClient(): JWT {
