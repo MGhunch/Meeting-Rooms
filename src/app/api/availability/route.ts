@@ -29,12 +29,12 @@ interface AvailabilityResponse {
 }
 
 function getAuthClient(): JWT {
-  const base64 = process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64
-  if (!base64) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 not set')
-  const json = JSON.parse(Buffer.from(base64, 'base64').toString('utf-8'))
+  const email = process.env.GOOGLE_CLIENT_EMAIL
+  const key = process.env.GOOGLE_PRIVATE_KEY
+  if (!email || !key) throw new Error('GOOGLE_CLIENT_EMAIL or GOOGLE_PRIVATE_KEY not set')
   return new JWT({
-    email: json.client_email,
-    key: json.private_key,
+    email,
+    key: key.replace(/\\n/g, '\n'),
     scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
   })
 }
@@ -97,7 +97,6 @@ async function getRoomAvailability(
       title: b.title,
     }))
 
-    // freeNow: is the room free at this exact moment (if today)?
     const isToday = dateStr === toZonedTime(now, TIMEZONE).toISOString().slice(0, 10)
     let freeNow = false
     let nextAvailable: string | null = null
@@ -105,7 +104,6 @@ async function getRoomAvailability(
     if (isToday && now >= windowStart && now < windowEnd) {
       freeNow = !merged.some((b) => b.start <= now && b.end > now)
       if (!freeNow) {
-        // Find when current block ends
         const currentBlock = merged.find((b) => b.start <= now && b.end > now)
         if (currentBlock) nextAvailable = currentBlock.end.toISOString()
       }
@@ -123,7 +121,6 @@ async function getRoomAvailability(
   }
 }
 
-// Simple in-memory cache
 const cache = new Map<string, { data: AvailabilityResponse; ts: number }>()
 const CACHE_TTL = 60_000
 
@@ -131,7 +128,6 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const dateParam = searchParams.get('date')
 
-  // Default to today in NZ time
   const nowNZ = toZonedTime(new Date(), TIMEZONE)
   const dateStr = dateParam || nowNZ.toISOString().slice(0, 10)
 
