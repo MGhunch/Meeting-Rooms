@@ -11,7 +11,7 @@ const NZ_TZ = 'Pacific/Auckland'
 
 type Business = 'Baker' | 'Clarity' | 'Hunch' | 'Navigate'
 type Room = 'talking' | 'board'
-type Duration = 30 | 60 | 180 | 240 | 480 | 'longer'
+type Duration = 30 | 60 | 180 | 240 | 480
 type ModalState = 'booking' | 'confirmed'
 
 interface BusyBlock { start: string; end: string; title: string }
@@ -245,11 +245,6 @@ export default function RoomHub() {
 
   const handleBookNow = async () => {
     if (!booking) return
-    if (selectedDuration === 'longer') {
-      window.open(buildGCalUrl(booking.room, booking.slotStart, 480, selectedBusiness), '_blank')
-      setBooking(null)
-      return
-    }
     setBookingError(null)
     try {
       const res = await fetch('/api/book', {
@@ -257,7 +252,9 @@ export default function RoomHub() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           room: booking.room,
-          start: booking.slotStart.toISOString(),
+          start: selectedDuration === 480
+            ? new Date(booking.slotStart.getFullYear(), booking.slotStart.getMonth(), booking.slotStart.getDate(), 9, 0, 0).toISOString()
+            : booking.slotStart.toISOString(),
           durationMins: selectedDuration,
           business: selectedBusiness,
         }),
@@ -283,7 +280,7 @@ export default function RoomHub() {
   }
 
   const handleICS = () => {
-    if (!booking || [180,240,480,'longer'].includes(selectedDuration as any)) return
+    if (!booking) return
     downloadICS(booking.room, booking.slotStart, selectedDuration as number, selectedBusiness, currentDate)
   }
 
@@ -402,7 +399,7 @@ export default function RoomHub() {
           <button style={navBtn(canBack)} onClick={() => canBack && setCurrentDate(addDays(currentDate, -1))}>
             <svg width="18" height="18" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 1L3 5L7 9"/></svg>
           </button>
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
             <div onClick={() => setShowPicker(p => !p)} style={{
               fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', minWidth: 240, textAlign: 'center',
               cursor: 'pointer', textDecoration: showPicker ? 'underline' : 'none',
@@ -468,12 +465,12 @@ export default function RoomHub() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr' }}>
             <div style={{ background: 'rgba(0,0,0,0.02)' }}>{renderTimeLabels()}</div>
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
               {data?.talkingRoom.error
                 ? <div style={{ padding: '20px 10px', fontSize: 11, color: 'var(--text-muted)' }}>Could not load calendar</div>
                 : renderSlots('talking')}
             </div>
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
               {data?.boardRoom.error
                 ? <div style={{ padding: '20px 10px', fontSize: 11, color: 'var(--text-muted)' }}>Could not load calendar</div>
                 : renderSlots('board')}
@@ -550,16 +547,16 @@ export default function RoomHub() {
                       {d === 30 ? '30 min' : '1 hr'}
                     </button>
                   ))}
-                  <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'relative', flex: 1 }}>
                     <button
-                      onClick={() => setSelectedDuration(selectedDuration === 'longer' || [180,240,480].includes(selectedDuration as number) ? 30 : 'longer')}
-                      style={optBtn([180,240,480,'longer'].includes(selectedDuration as any))}
+                      onClick={() => setSelectedDuration([180,240,480].includes(selectedDuration as number) ? 30 : 180)}
+                      style={optBtn([180,240,480].includes(selectedDuration as number), { width: '100%' })}
                     >
                       {[180,240,480].includes(selectedDuration as number)
                         ? (selectedDuration === 180 ? '3 hr' : selectedDuration === 240 ? '4 hr' : 'All day')
                         : 'More ▾'}
                     </button>
-                    {(selectedDuration === 'longer' || [180,240,480].includes(selectedDuration as number)) && (
+                    {[180,240,480].includes(selectedDuration as number) && (
                       <div style={{
                         position: 'absolute', top: '100%', left: 0, marginTop: 4,
                         background: '#fff', border: '1.5px solid var(--line)', borderRadius: 8,
@@ -597,7 +594,7 @@ export default function RoomHub() {
                   onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.opacity = '0.8'}
                   onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.opacity = '1'}
                 >
-                  {[180,240,480,'longer'].includes(selectedDuration as any) ? 'Book in Google Calendar →' : 'Book now'}
+                  'Book now'
                 </button>
               </div>
 
