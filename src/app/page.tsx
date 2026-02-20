@@ -246,7 +246,7 @@ export default function RoomHub() {
   const handleBookNow = async () => {
     if (!booking) return
     if (selectedDuration === 'longer') {
-      window.open(buildGCalUrl(booking.room, booking.slotStart, selectedDuration as number, selectedBusiness), '_blank')
+      window.open(buildGCalUrl(booking.room, booking.slotStart, 480, selectedBusiness), '_blank')
       setBooking(null)
       return
     }
