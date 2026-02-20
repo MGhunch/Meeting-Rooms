@@ -456,7 +456,7 @@ export default function RoomHub() {
           <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr' }}>
-            <div>{renderTimeLabels()}</div>
+            <div style={{ background: 'rgba(0,0,0,0.02)' }}>{renderTimeLabels()}</div>
             <div style={{ position: 'relative' }}>
               {data?.talkingRoom.error
                 ? <div style={{ padding: '20px 10px', fontSize: 11, color: 'var(--text-muted)' }}>Could not load calendar</div>
