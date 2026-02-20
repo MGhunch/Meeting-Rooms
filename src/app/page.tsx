@@ -263,6 +263,18 @@ export default function RoomHub() {
         }),
       })
       if (!res.ok) throw new Error('Booking failed')
+      // Optimistic update — add busy block instantly without waiting for API
+      const endTime = new Date(booking.slotStart.getTime() + (selectedDuration as number) * 60000)
+      const newBlock: BusyBlock = {
+        start: booking.slotStart.toISOString(),
+        end: endTime.toISOString(),
+        title: selectedBusiness,
+      }
+      setData(prev => {
+        if (!prev) return prev
+        const key = booking.room === 'talking' ? 'talkingRoom' : 'boardRoom'
+        return { ...prev, [key]: { ...prev[key], busyBlocks: [...prev[key].busyBlocks, newBlock] } }
+      })
       setIsFlipped(true)
       setTimeout(() => setModalState('confirmed'), 220)
       fetchData(currentDate)
@@ -494,7 +506,7 @@ export default function RoomHub() {
 
       {/* ── Page footer ── */}
       <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-light)', letterSpacing: '0.1px' }}>
-        This calendar is powered by Google Calendar. Hit the button to see the original. 
+        This calendar is view only. You&apos;ll go through to Google Calendar to book.
       </div>
 
       {/* ── Modal ── */}
