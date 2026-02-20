@@ -23,7 +23,7 @@ function getAuthClient(): JWT {
 
 export async function POST(req: NextRequest) {
   try {
-    const { room, eventId } = await req.json()
+    const { room, eventId, start } = await req.json()
 
     if (!room || !eventId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -35,9 +35,14 @@ export async function POST(req: NextRequest) {
 
     await calendar.events.delete({ calendarId, eventId })
 
-    // Invalidate cache so next poll reflects the removal
-    const nowNZ = toZonedTime(new Date(), TIMEZONE).toISOString().slice(0, 10)
-    availabilityCache.delete(nowNZ)
+    // Invalidate the correct date's cache entry.
+    // Use the booking's start date if provided, otherwise clear everything.
+    if (start) {
+      const dateStr = toZonedTime(new Date(start), TIMEZONE).toISOString().slice(0, 10)
+      availabilityCache.delete(dateStr)
+    } else {
+      availabilityCache.clear()
+    }
 
     return NextResponse.json({ success: true })
   } catch (err) {

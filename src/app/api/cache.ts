@@ -9,4 +9,4 @@ interface CacheEntry {
 }
 
 export const availabilityCache = new Map<string, CacheEntry>()
-export const CACHE_TTL = 60_000
+export const CACHE_TTL = 30_000
