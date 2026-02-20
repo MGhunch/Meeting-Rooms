@@ -8,10 +8,12 @@
   --line: #e8e5e0;
   --line-light: #f0ede8;
 
-  --talk-tint: rgba(220, 150, 170, 0.10);
-  --board-tint: rgba(80, 130, 210, 0.07);
-  --talk-hover: rgba(220, 150, 170, 0.22);
-  --board-hover: rgba(80, 130, 210, 0.15);
+  --talk-tint: #ffffff;
+  --board-tint: #ffffff;
+  --talk-hover: #f8f6f3;
+  --board-hover: #f8f6f3;
+  --line: #e0ddd8;
+  --line-light: #eeebe6;
 
   --hunch: #d94040;
   --baker: #b87d4b;

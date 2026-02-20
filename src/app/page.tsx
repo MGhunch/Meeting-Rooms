@@ -373,12 +373,21 @@ export default function RoomHub() {
             onClick={(e) => { e.stopPropagation(); setViewing({ room, block: busyBlock }) }}
             style={{
               position: 'absolute', left: 3, right: 3, top: 2, height: h,
-              borderRadius: 4, background: c.bg, color: c.color,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 10, fontWeight: 600, letterSpacing: '0.3px',
-              textTransform: 'uppercase', zIndex: 2, cursor: 'pointer',
+              borderRadius: 4, background: c.bg,
+              borderLeft: `2.5px solid ${c.color}`,
+              zIndex: 2, cursor: 'pointer',
+              padding: '3px 6px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-start',
             }}>
-            {biz !== 'Booked' ? biz : ''}
+            <span style={{
+              fontSize: 10, fontWeight: 700,
+              color: c.color, letterSpacing: '0.4px',
+              textTransform: 'uppercase', lineHeight: 1.2,
+            }}>
+              {biz !== 'Booked' ? biz : ''}
+            </span>
           </div>
         )
       }
@@ -410,9 +419,10 @@ export default function RoomHub() {
         <div key={`t-${i}`} style={{
           fontSize: isHour ? 11 : 10, color: isHour ? 'var(--text-muted)' : 'var(--text-light)',
           fontWeight: isHour ? 500 : 400, height: 20, display: 'flex', alignItems: 'flex-start',
-          paddingTop: 1, paddingLeft: 2,
+          paddingTop: 1, paddingRight: 6, justifyContent: 'flex-end',
           borderTop: i % 2 === 0 ? '1px solid var(--line)' : 'none',
           borderBottom: isMidday(i) ? '1px solid var(--line)' : '1px solid var(--line-light)',
+          background: '#fff',
           fontVariantNumeric: 'tabular-nums',
         }}>
           {label}
@@ -454,7 +464,7 @@ export default function RoomHub() {
   }
 
   return (
-    <div style={{ maxWidth: 520, margin: '0 auto', padding: '40px 24px 60px', background: 'var(--bg)' }}>
+    <div style={{ maxWidth: 560, margin: '0 auto', padding: '40px 24px 60px', background: 'var(--bg)' }}>
 
       {/* ── Header ── */}
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
@@ -503,7 +513,7 @@ export default function RoomHub() {
 
       {/* ── Hint ── */}
       <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginBottom: 20, letterSpacing: '0.1px' }}>
-        Click a start time to book. Or just jump in if the room is free.
+        Just click a start time to book. Or jump in if the room's free.
       </div>
 
       {/* ── White card ── */}
@@ -515,11 +525,11 @@ export default function RoomHub() {
         {/* Column headers */}
         <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr', borderBottom: '1.5px solid var(--text)' }}>
           <div style={{ background: 'rgba(0,0,0,0.02)' }} />
-          <div style={{ padding: '12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--talk-tint)' }}>
+          <div style={{ padding: '12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#fff' }}>
             <TalkingIcon />
             <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.3px' }}>Talking Room</span>
           </div>
-          <div style={{ padding: '12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--board-tint)' }}>
+          <div style={{ padding: '12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#fff' }}>
             <BoardIcon />
             <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.3px' }}>Board Room</span>
           </div>
@@ -530,7 +540,7 @@ export default function RoomHub() {
           <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr' }}>
-            <div style={{ background: 'rgba(0,0,0,0.02)' }}>{renderTimeLabels()}</div>
+            <div style={{ background: '#fff' }}>{renderTimeLabels()}</div>
             <div style={{ position: 'relative', flex: 1 }}>
               {data?.talkingRoom.error
                 ? <div style={{ padding: '20px 10px', fontSize: 11, color: 'var(--text-muted)' }}>Could not load calendar</div>
@@ -643,7 +653,7 @@ export default function RoomHub() {
                           return (
                             <button key={mins} onClick={() => { if (!conflicted) { setSelectedDuration(mins as Duration); setBookingError(null) } setShowMoreDropdown(false) }} style={{
                               display: 'block', width: '100%', textAlign: 'left',
-                              padding: '8px 12px', border: 'none', background: selectedDuration === mins ? 'var(--talk-tint)' : 'transparent',
+                              padding: '8px 12px', border: 'none', background: selectedDuration === mins ? '#f8f6f3' : 'transparent',
                               fontFamily: 'Instrument Sans, sans-serif', fontSize: 12, fontWeight: 600,
                               cursor: conflicted ? 'not-allowed' : 'pointer', color: conflicted ? 'var(--text-light)' : 'var(--text)',
                               opacity: conflicted ? 0.45 : 1,
