@@ -440,7 +440,7 @@ export default function RoomHub() {
       }}>
         {/* Column headers */}
         <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr', borderBottom: '1.5px solid var(--text)' }}>
-          <div style={{ borderRadius: '12px 0 0 0' }} />
+          <div style={{ background: 'rgba(0,0,0,0.02)' }} />
           <div style={{ padding: '12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--talk-tint)' }}>
             <TalkingIcon />
             <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.3px' }}>Talking Room</span>
