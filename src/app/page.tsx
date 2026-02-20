@@ -277,7 +277,6 @@ export default function RoomHub() {
       })
       setIsFlipped(true)
       setTimeout(() => setModalState('confirmed'), 220)
-      fetchData(currentDate)
     } catch {
       setBookingError('Something went wrong. Please try again.')
     }
