@@ -329,7 +329,7 @@ export default function RoomHub() {
       const res = await fetch('/api/remove', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room: viewing.room, eventId: viewing.block.eventId }),
+        body: JSON.stringify({ room: viewing.room, eventId: viewing.block.eventId, start: viewing.block.start }),
       })
       if (!res.ok) throw new Error('Remove failed')
       // Optimistic update — remove block from state immediately
@@ -524,7 +524,7 @@ export default function RoomHub() {
       }}>
         {/* Column headers */}
         <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr', borderBottom: '1.5px solid var(--text)' }}>
-          <div style={{ background: 'rgba(0,0,0,0.02)' }} />
+          <div style={{ background: '#fff' }} />
           <div style={{ padding: '12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#fff' }}>
             <TalkingIcon />
             <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.3px' }}>Talking Room</span>
