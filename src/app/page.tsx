@@ -494,7 +494,7 @@ export default function RoomHub() {
 
       {/* ── Page footer ── */}
       <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-light)', letterSpacing: '0.1px' }}>
-        Calender is powered by Google. Click see the calendar to go straight there.
+        Calender is powered by Google. Click see the button to go straight there.
       </div>
 
       {/* ── Modal ── */}
