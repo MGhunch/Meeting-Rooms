@@ -9,11 +9,13 @@ const TIMEZONE = process.env.TIMEZONE || 'Pacific/Auckland'
 function getAuthClient(): JWT {
   const email = process.env.GOOGLE_CLIENT_EMAIL
   const key   = process.env.GOOGLE_PRIVATE_KEY
+  const subject = process.env.GOOGLE_SUBJECT
   if (!email || !key) throw new Error('Missing credentials')
   return new JWT({
     email,
     key: key.replace(/\\n/g, '\n'),
     scopes: ['https://www.googleapis.com/auth/calendar.events'],
+    subject,
   })
 }
 
