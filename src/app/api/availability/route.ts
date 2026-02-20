@@ -14,6 +14,7 @@ interface BusyBlock {
   start: string
   end: string
   title: string
+  eventId: string
 }
 
 interface RoomAvailability {
@@ -49,7 +50,7 @@ function parseWindowTime(dateStr: string, timeStr: string): Date {
   return fromZonedTime(zonedDate, TIMEZONE)
 }
 
-function mergeBlocks(blocks: { start: Date; end: Date; title: string }[]): { start: Date; end: Date; title: string }[] {
+function mergeBlocks(blocks: { id: string; start: Date; end: Date; title: string }[]): { id: string; start: Date; end: Date; title: string }[] {
   if (blocks.length === 0) return []
   const sorted = [...blocks].sort((a, b) => a.start.getTime() - b.start.getTime())
   const merged = [sorted[0]]
@@ -85,6 +86,7 @@ async function getRoomAvailability(
     const rawBlocks = events
       .filter((e) => e.start?.dateTime && e.end?.dateTime)
       .map((e) => ({
+        id: e.id || '',
         start: new Date(Math.max(new Date(e.start!.dateTime!).getTime(), windowStart.getTime())),
         end: new Date(Math.min(new Date(e.end!.dateTime!).getTime(), windowEnd.getTime())),
         title: e.summary || 'Booked',
@@ -98,6 +100,7 @@ async function getRoomAvailability(
       start: b.start.toISOString(),
       end: b.end.toISOString(),
       title: b.title,
+      eventId: b.id,
     }))
 
     const isToday = dateStr === toZonedTime(now, TIMEZONE).toISOString().slice(0, 10)
