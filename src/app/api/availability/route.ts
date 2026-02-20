@@ -30,12 +30,14 @@ interface AvailabilityResponse {
 
 function getAuthClient(): JWT {
   const email = process.env.GOOGLE_CLIENT_EMAIL
-  const key = process.env.GOOGLE_PRIVATE_KEY
+  const key   = process.env.GOOGLE_PRIVATE_KEY
+  const subject = process.env.GOOGLE_SUBJECT
   if (!email || !key) throw new Error('GOOGLE_CLIENT_EMAIL or GOOGLE_PRIVATE_KEY not set')
   return new JWT({
     email,
     key: key.replace(/\\n/g, '\n'),
     scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+    subject,
   })
 }
 
