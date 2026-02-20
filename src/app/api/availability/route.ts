@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { JWT } from 'google-auth-library'
 import { toZonedTime, fromZonedTime } from 'date-fns-tz'
+import { availabilityCache, CACHE_TTL } from '../cache'
 
 const TIMEZONE = process.env.TIMEZONE || 'Pacific/Auckland'
 const TALKING_CALENDAR_ID = (process.env.NEXT_PUBLIC_TALKING_CALENDAR_ID || process.env.TALKING_CALENDAR_ID)!
@@ -123,9 +124,6 @@ async function getRoomAvailability(
   }
 }
 
-const cache = new Map<string, { data: AvailabilityResponse; ts: number }>()
-const CACHE_TTL = 60_000
-
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const dateParam = searchParams.get('date')
@@ -134,7 +132,7 @@ export async function GET(req: NextRequest) {
   const dateStr = dateParam || nowNZ.toISOString().slice(0, 10)
 
   const cacheKey = dateStr
-  const cached = cache.get(cacheKey)
+  const cached = availabilityCache.get(cacheKey)
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
     return NextResponse.json(cached.data)
   }
@@ -155,7 +153,7 @@ export async function GET(req: NextRequest) {
   ])
 
   const data: AvailabilityResponse = { talkingRoom, boardRoom, date: dateStr }
-  cache.set(cacheKey, { data, ts: Date.now() })
+  availabilityCache.set(cacheKey, { data, ts: Date.now() })
 
   return NextResponse.json(data)
 }
