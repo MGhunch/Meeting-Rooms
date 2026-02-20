@@ -11,7 +11,7 @@ const NZ_TZ = 'Pacific/Auckland'
 
 type Business = 'Baker' | 'Clarity' | 'Hunch' | 'Navigate'
 type Room = 'talking' | 'board'
-type Duration = 30 | 60 | 180 | 240 | 480
+type Duration = 30 | 60 | 120 | 180 | 240 | 480
 type ModalState = 'booking' | 'confirmed'
 
 interface BusyBlock { start: string; end: string; title: string; eventId?: string }
@@ -371,6 +371,8 @@ export default function RoomHub() {
         label = (
           <div
             onClick={(e) => { e.stopPropagation(); setViewing({ room, block: busyBlock }) }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.filter = 'brightness(0.93)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.filter = 'none' }}
             style={{
               position: 'absolute', left: 3, right: 3, top: 2, height: h,
               borderRadius: 4, background: c.bg,
@@ -380,6 +382,7 @@ export default function RoomHub() {
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'flex-start',
+              transition: 'filter 0.1s',
             }}>
             <span style={{
               fontSize: 10, fontWeight: 700,
@@ -631,13 +634,13 @@ export default function RoomHub() {
                   <div style={{ position: 'relative', flex: 1 }} ref={moreRef}>
                     {(() => {
                       const rd_ = booking.room === 'talking' ? data?.talkingRoom : data?.boardRoom
-                      const moreConflicted = !!durationConflicts(currentDate, booking.slotStart, selectedDuration, rd_?.busyBlocks || []) && [180,240,480].includes(selectedDuration)
+                      const moreConflicted = !!durationConflicts(currentDate, booking.slotStart, selectedDuration, rd_?.busyBlocks || []) && [120,180,240,480].includes(selectedDuration)
                       return (
                         <button
                           onClick={() => setShowMoreDropdown(p => !p)}
-                          style={optBtn([180,240,480].includes(selectedDuration as number), { width: '100%' }, moreConflicted)}>
-                          {[180,240,480].includes(selectedDuration as number)
-                            ? (selectedDuration === 180 ? '3 hr' : selectedDuration === 240 ? '4 hr' : 'All day')
+                          style={optBtn([120,180,240,480].includes(selectedDuration as number), { width: '100%' }, moreConflicted)}>
+                          {[120,180,240,480].includes(selectedDuration as number)
+                            ? (selectedDuration === 120 ? '2 hr' : selectedDuration === 180 ? '3 hr' : selectedDuration === 240 ? '4 hr' : 'All day')
                             : 'More ▾'}
                         </button>
                       )
@@ -648,7 +651,7 @@ export default function RoomHub() {
                         background: '#fff', border: '1.5px solid var(--line)', borderRadius: 8,
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, overflow: 'hidden', minWidth: 80,
                       }}>
-                        {([180, 240, 480] as number[]).map(mins => {
+                        {([120, 180, 240, 480] as number[]).map(mins => {
                           const rd_ = booking.room === 'talking' ? data?.talkingRoom : data?.boardRoom
                           const conflicted = !!durationConflicts(currentDate, booking.slotStart, mins, rd_?.busyBlocks || [])
                           return (
@@ -659,7 +662,7 @@ export default function RoomHub() {
                               cursor: conflicted ? 'not-allowed' : 'pointer', color: conflicted ? 'var(--text-light)' : 'var(--text)',
                               opacity: conflicted ? 0.45 : 1,
                             }}>
-                              {mins === 180 ? '3 hours' : mins === 240 ? '4 hours' : 'All day'}
+                              {mins === 120 ? '2 hours' : mins === 180 ? '3 hours' : mins === 240 ? '4 hours' : 'All day'}
                             </button>
                           )
                         })}
@@ -712,7 +715,7 @@ export default function RoomHub() {
                 <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
 
                 <div style={{ marginBottom: 20 }}>
-                  {[`${selectedDuration === 30 ? '30 minutes' : selectedDuration === 60 ? '1 hour' : selectedDuration === 180 ? '3 hours' : selectedDuration === 240 ? '4 hours' : selectedDuration === 480 ? 'All day' : ''}`, `${selectedBusiness}`].map((line, i) => (
+                  {[`${selectedDuration === 30 ? '30 minutes' : selectedDuration === 60 ? '1 hour' : selectedDuration === 120 ? '2 hours' : selectedDuration === 180 ? '3 hours' : selectedDuration === 240 ? '4 hours' : selectedDuration === 480 ? 'All day' : ''}`, `${selectedBusiness}`].map((line, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: '1px 0' }}>
                       <span style={{ color: '#4a9a5e' }}>✓</span> {line}
                     </div>
@@ -752,7 +755,7 @@ export default function RoomHub() {
         const start     = new Date(viewing.block.start)
         const end       = new Date(viewing.block.end)
         const durMins   = Math.round((end.getTime() - start.getTime()) / 60_000)
-        const durLabel  = durMins === 30 ? '30 minutes' : durMins === 60 ? '1 hour' : durMins === 180 ? '3 hours' : durMins === 240 ? '4 hours' : durMins >= 480 ? 'All day' : `${durMins} min`
+        const durLabel  = durMins === 30 ? '30 minutes' : durMins === 60 ? '1 hour' : durMins === 120 ? '2 hours' : durMins === 180 ? '3 hours' : durMins === 240 ? '4 hours' : durMins >= 480 ? 'All day' : `${durMins} min`
         const viewRoom  = viewing.room === 'talking' ? 'Talking Room' : 'Board Room'
         const timeLabel = formatTime12(start)
 
