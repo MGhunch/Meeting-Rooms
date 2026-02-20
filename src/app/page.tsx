@@ -145,6 +145,15 @@ function downloadICS(room: Room, start: Date, durationMins: number, business: Bu
   URL.revokeObjectURL(url)
 }
 
+function durationConflicts(dateStr: string, slotStart: Date, durationMins: number, blocks: BusyBlock[]): BusyBlock | null {
+  const start = durationMins === 480 ? fromZonedTime(`${dateStr}T09:00:00`, NZ_TZ) : slotStart
+  const end   = new Date(start.getTime() + durationMins * 60_000)
+  for (const b of blocks) {
+    if (new Date(b.start) < end && new Date(b.end) > start) return b
+  }
+  return null
+}
+
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
 function TalkingIcon() {
@@ -187,8 +196,10 @@ export default function RoomHub() {
   const [selectedBusiness, setSelectedBusiness] = useState<Business>('Hunch')
   const [selectedDuration, setSelectedDuration] = useState<Duration>(30)
   const [showPicker, setShowPicker]             = useState(false)
+  const [showMoreDropdown, setShowMoreDropdown]  = useState(false)
   const [booking_error, setBookingError]        = useState<string | null>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
+  const moreRef   = useRef<HTMLDivElement>(null)
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -231,6 +242,14 @@ export default function RoomHub() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showPicker])
 
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setShowMoreDropdown(false)
+    }
+    if (showMoreDropdown) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showMoreDropdown])
+
   const today   = todayNZ()
   const canBack = currentDate > today
   const canFwd  = true
@@ -240,12 +259,25 @@ export default function RoomHub() {
     setBookingError(null)
     setIsFlipped(false)
     setModalState('booking')
+    setShowMoreDropdown(false)
     setBooking({ room, slotStart: slotIndexToDate(currentDate, slotIndex) })
   }
 
   const handleBookNow = async () => {
     if (!booking) return
     setBookingError(null)
+
+    // Front-end conflict check using already-loaded busy blocks
+    const rd = booking.room === 'talking' ? data?.talkingRoom : data?.boardRoom
+    const blocks = rd?.busyBlocks || []
+    const conflict = durationConflicts(currentDate, booking.slotStart, selectedDuration, blocks)
+    if (conflict) {
+      const conflictStart = formatTime12(new Date(conflict.start))
+      const roomName_ = booking.room === 'talking' ? 'Talking Room' : 'Board Room'
+      setBookingError(`${roomName_} is booked from ${conflictStart}.`)
+      return
+    }
+
     try {
       const res = await fetch('/api/book', {
         method: 'POST',
@@ -261,9 +293,12 @@ export default function RoomHub() {
       })
       if (!res.ok) throw new Error('Booking failed')
       // Optimistic update — add busy block instantly without waiting for API
-      const endTime = new Date(booking.slotStart.getTime() + (selectedDuration as number) * 60000)
+      const actualStart = selectedDuration === 480
+        ? fromZonedTime(`${currentDate}T09:00:00`, NZ_TZ)
+        : booking.slotStart
+      const endTime = new Date(actualStart.getTime() + (selectedDuration as number) * 60000)
       const newBlock: BusyBlock = {
-        start: booking.slotStart.toISOString(),
+        start: actualStart.toISOString(),
         end: endTime.toISOString(),
         title: selectedBusiness,
       }
@@ -297,7 +332,7 @@ export default function RoomHub() {
       const isBusy     = !!busyBlock
       const isHour     = i % 2 === 0
       const isMiddaySlot = isMidday(i)
-      const isLast     = i === TOTAL_SLOTS - 1
+      const isLast     = false // all slots are bookable; 5:30pm + 30min ends at 6pm which is within window
 
       let label: React.ReactNode = null
       if (isBusy && busyBlock && !seen.has(busyBlock.start)) {
@@ -366,13 +401,14 @@ export default function RoomHub() {
     opacity: on ? 1 : 0.2, display: 'flex', alignItems: 'center', transition: 'all 0.15s',
   })
 
-  const optBtn = (active: boolean, extra?: React.CSSProperties): React.CSSProperties => ({
+  const optBtn = (active: boolean, extra?: React.CSSProperties, conflicted?: boolean): React.CSSProperties => ({
     fontFamily: 'Instrument Sans, sans-serif', fontSize: 12, fontWeight: 600,
     padding: '7px 0', borderRadius: 6, flex: 1, textAlign: 'center' as const,
-    border: `1.5px solid ${active ? 'var(--text)' : 'var(--line)'}`,
+    border: `1.5px solid ${active ? 'var(--text)' : conflicted ? 'var(--line)' : 'var(--line)'}`,
     background: active ? 'var(--text)' : 'transparent',
-    color: active ? '#fff' : 'var(--text-muted)',
-    cursor: 'pointer', transition: 'all 0.15s', ...extra,
+    color: active ? '#fff' : conflicted ? 'var(--text-light)' : 'var(--text-muted)',
+    cursor: conflicted ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
+    opacity: conflicted ? 0.45 : 1, ...extra,
   })
 
   const bizBtn = (b: Business): React.CSSProperties => {
@@ -542,36 +578,50 @@ export default function RoomHub() {
 
                 <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8 }}>How long?</div>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 18, position: 'relative' }}>
-                  {([30, 60] as Duration[]).map(d => (
-                    <button key={String(d)} onClick={() => setSelectedDuration(d)} style={optBtn(selectedDuration === d)}>
-                      {d === 30 ? '30 min' : '1 hr'}
-                    </button>
-                  ))}
-                  <div style={{ position: 'relative', flex: 1 }}>
-                    <button
-                      onClick={() => setSelectedDuration([180,240,480].includes(selectedDuration as number) ? 30 : 180)}
-                      style={optBtn([180,240,480].includes(selectedDuration as number), { width: '100%' })}
-                    >
-                      {[180,240,480].includes(selectedDuration as number)
-                        ? (selectedDuration === 180 ? '3 hr' : selectedDuration === 240 ? '4 hr' : 'All day')
-                        : 'More ▾'}
-                    </button>
-                    {[180,240,480].includes(selectedDuration as number) && (
+                  {([30, 60] as Duration[]).map(d => {
+                    const rd_ = booking.room === 'talking' ? data?.talkingRoom : data?.boardRoom
+                    const conflicted = !!durationConflicts(currentDate, booking.slotStart, d, rd_?.busyBlocks || [])
+                    return (
+                      <button key={String(d)} onClick={() => { if (!conflicted) { setSelectedDuration(d); setBookingError(null) } }} style={optBtn(selectedDuration === d, undefined, conflicted)}>
+                        {d === 30 ? '30 min' : '1 hr'}
+                      </button>
+                    )
+                  })}
+                  <div style={{ position: 'relative', flex: 1 }} ref={moreRef}>
+                    {(() => {
+                      const rd_ = booking.room === 'talking' ? data?.talkingRoom : data?.boardRoom
+                      const moreConflicted = !!durationConflicts(currentDate, booking.slotStart, selectedDuration, rd_?.busyBlocks || []) && [180,240,480].includes(selectedDuration)
+                      return (
+                        <button
+                          onClick={() => setShowMoreDropdown(p => !p)}
+                          style={optBtn([180,240,480].includes(selectedDuration as number), { width: '100%' }, moreConflicted)}>
+                          {[180,240,480].includes(selectedDuration as number)
+                            ? (selectedDuration === 180 ? '3 hr' : selectedDuration === 240 ? '4 hr' : 'All day')
+                            : 'More ▾'}
+                        </button>
+                      )
+                    })()}
+                    {showMoreDropdown && (
                       <div style={{
                         position: 'absolute', top: '100%', left: 0, marginTop: 4,
                         background: '#fff', border: '1.5px solid var(--line)', borderRadius: 8,
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, overflow: 'hidden', minWidth: 80,
                       }}>
-                        {([180, 240, 480] as number[]).map(mins => (
-                          <button key={mins} onClick={() => setSelectedDuration(mins as Duration)} style={{
-                            display: 'block', width: '100%', textAlign: 'left',
-                            padding: '8px 12px', border: 'none', background: selectedDuration === mins ? 'var(--talk-tint)' : 'transparent',
-                            fontFamily: 'Instrument Sans, sans-serif', fontSize: 12, fontWeight: 600,
-                            cursor: 'pointer', color: 'var(--text)',
-                          }}>
-                            {mins === 180 ? '3 hours' : mins === 240 ? '4 hours' : 'All day'}
-                          </button>
-                        ))}
+                        {([180, 240, 480] as number[]).map(mins => {
+                          const rd_ = booking.room === 'talking' ? data?.talkingRoom : data?.boardRoom
+                          const conflicted = !!durationConflicts(currentDate, booking.slotStart, mins, rd_?.busyBlocks || [])
+                          return (
+                            <button key={mins} onClick={() => { if (!conflicted) { setSelectedDuration(mins as Duration); setBookingError(null) } setShowMoreDropdown(false) }} style={{
+                              display: 'block', width: '100%', textAlign: 'left',
+                              padding: '8px 12px', border: 'none', background: selectedDuration === mins ? 'var(--talk-tint)' : 'transparent',
+                              fontFamily: 'Instrument Sans, sans-serif', fontSize: 12, fontWeight: 600,
+                              cursor: conflicted ? 'not-allowed' : 'pointer', color: conflicted ? 'var(--text-light)' : 'var(--text)',
+                              opacity: conflicted ? 0.45 : 1,
+                            }}>
+                              {mins === 180 ? '3 hours' : mins === 240 ? '4 hours' : 'All day'}
+                            </button>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -594,7 +644,7 @@ export default function RoomHub() {
                   onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.opacity = '0.8'}
                   onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.opacity = '1'}
                 >
-                  'Book now'
+                  Book now
                 </button>
               </div>
 
