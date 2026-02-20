@@ -612,6 +612,7 @@ export default function RoomHub() {
                 </button>
 
                 <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 4 }}>{roomName.toUpperCase()}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: BUSINESS_COLORS[selectedBusiness].color, marginBottom: 2 }}>{selectedBusiness}</div>
                 <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-1px', color: 'var(--text)', marginBottom: 2 }}>{timeStr}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 24 }}>{formatDateHeading(currentDate)}</div>
                 <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
@@ -705,6 +706,7 @@ export default function RoomHub() {
                 </button>
 
                 <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 4 }}>{roomName.toUpperCase()}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: BUSINESS_COLORS[selectedBusiness].color, marginBottom: 2 }}>{selectedBusiness}</div>
                 <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-1px', color: 'var(--text)', marginBottom: 2 }}>{timeStr}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 24 }}>{formatDateHeading(currentDate)}</div>
                 <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
@@ -773,6 +775,7 @@ export default function RoomHub() {
                 </button>
 
                 <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 4 }}>{viewRoom.toUpperCase()}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: c.color, marginBottom: 2 }}>{biz !== 'Booked' ? biz : ''}</div>
                 <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-1px', color: 'var(--text)', marginBottom: 2 }}>{timeLabel}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 24 }}>{formatDateHeading(currentDate)}</div>
                 <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
@@ -789,7 +792,13 @@ export default function RoomHub() {
                 <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
 
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => setViewing(null)} style={{
+                  <button onClick={() => {
+                    const startDate = new Date(viewing.block.start)
+                    const totalMins = startDate.getHours() * 60 + startDate.getMinutes()
+                    const slotIndex = Math.round((totalMins - SLOT_START_HOUR * 60) / 30)
+                    setViewing(null)
+                    openModal(viewing.room, slotIndex)
+                  }} style={{
                     flex: 1, fontFamily: 'Instrument Sans, sans-serif',
                     fontSize: 12, fontWeight: 600, padding: '9px 0', borderRadius: 6,
                     border: '1.5px solid var(--line)', background: 'transparent', color: 'var(--text-muted)',
@@ -798,7 +807,7 @@ export default function RoomHub() {
                     Edit
                   </button>
                   <button onClick={handleRemove} disabled={removing} style={{
-                    flex: 2, fontFamily: 'Instrument Sans, sans-serif',
+                    flex: 1, fontFamily: 'Instrument Sans, sans-serif',
                     fontSize: 13, fontWeight: 600, padding: '9px 0', borderRadius: 6,
                     border: 'none', background: removing ? 'var(--text-muted)' : 'var(--text)', color: '#fff',
                     cursor: removing ? 'default' : 'pointer', transition: 'opacity 0.15s',
