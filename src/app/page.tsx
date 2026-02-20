@@ -494,7 +494,7 @@ export default function RoomHub() {
 
       {/* ── Page footer ── */}
       <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-light)', letterSpacing: '0.1px' }}>
-        This calendar is view only. You&apos;ll go through to Google Calendar to book.
+        This calendar is powered by Google Calendar. Hit the button to see the original. 
       </div>
 
       {/* ── Modal ── */}
