@@ -440,7 +440,7 @@ export default function RoomHub() {
       }}>
         {/* Column headers */}
         <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 1fr', borderBottom: '1.5px solid var(--text)' }}>
-          <div />
+          <div style={{ borderRadius: '12px 0 0 0' }} />
           <div style={{ padding: '12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--talk-tint)' }}>
             <TalkingIcon />
             <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.3px' }}>Talking Room</span>
@@ -494,7 +494,7 @@ export default function RoomHub() {
 
       {/* ── Page footer ── */}
       <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-light)', letterSpacing: '0.1px' }}>
-        Calender is powered by Google. Click see the button to go straight there.
+        This calendar is view only. You&apos;ll go through to Google Calendar to book.
       </div>
 
       {/* ── Modal ── */}
