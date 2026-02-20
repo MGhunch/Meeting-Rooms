@@ -11,7 +11,7 @@ const NZ_TZ = 'Pacific/Auckland'
 
 type Business = 'Baker' | 'Clarity' | 'Hunch' | 'Navigate'
 type Room = 'talking' | 'board'
-type Duration = 30 | 60 | 'longer'
+type Duration = 30 | 60 | 180 | 240 | 480 | 'longer'
 type ModalState = 'booking' | 'confirmed'
 
 interface BusyBlock { start: string; end: string; title: string }
@@ -246,7 +246,7 @@ export default function RoomHub() {
   const handleBookNow = async () => {
     if (!booking) return
     if (selectedDuration === 'longer') {
-      window.open(buildGCalUrl(booking.room, booking.slotStart, 120, selectedBusiness), '_blank')
+      window.open(buildGCalUrl(booking.room, booking.slotStart, selectedDuration as number, selectedBusiness), '_blank')
       setBooking(null)
       return
     }
@@ -283,7 +283,7 @@ export default function RoomHub() {
   }
 
   const handleICS = () => {
-    if (!booking || selectedDuration === 'longer') return
+    if (!booking || [180,240,480,'longer'].includes(selectedDuration as any)) return
     downloadICS(booking.room, booking.slotStart, selectedDuration as number, selectedBusiness, currentDate)
   }
 
@@ -505,7 +505,7 @@ export default function RoomHub() {
 
       {/* ── Page footer ── */}
       <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-light)', letterSpacing: '0.1px' }}>
-        This calendar is view only. You&apos;ll go through to Google Calendar to book.
+        Powered by Google Calendar. Re-syncs every minute.
       </div>
 
       {/* ── Modal ── */}
@@ -544,12 +544,40 @@ export default function RoomHub() {
                 <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
 
                 <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8 }}>How long?</div>
-                <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
-                  {([30, 60, 'longer'] as Duration[]).map(d => (
+                <div style={{ display: 'flex', gap: 6, marginBottom: 18, position: 'relative' }}>
+                  {([30, 60] as Duration[]).map(d => (
                     <button key={String(d)} onClick={() => setSelectedDuration(d)} style={optBtn(selectedDuration === d)}>
-                      {d === 30 ? '30 min' : d === 60 ? '1 hr' : 'Longer'}
+                      {d === 30 ? '30 min' : '1 hr'}
                     </button>
                   ))}
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      onClick={() => setSelectedDuration(selectedDuration === 'longer' || [180,240,480].includes(selectedDuration as number) ? 30 : 'longer')}
+                      style={optBtn([180,240,480,'longer'].includes(selectedDuration as any))}
+                    >
+                      {[180,240,480].includes(selectedDuration as number)
+                        ? (selectedDuration === 180 ? '3 hr' : selectedDuration === 240 ? '4 hr' : 'All day')
+                        : 'More ▾'}
+                    </button>
+                    {(selectedDuration === 'longer' || [180,240,480].includes(selectedDuration as number)) && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 0, marginTop: 4,
+                        background: '#fff', border: '1.5px solid var(--line)', borderRadius: 8,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, overflow: 'hidden', minWidth: 80,
+                      }}>
+                        {([180, 240, 480] as number[]).map(mins => (
+                          <button key={mins} onClick={() => setSelectedDuration(mins as Duration)} style={{
+                            display: 'block', width: '100%', textAlign: 'left',
+                            padding: '8px 12px', border: 'none', background: selectedDuration === mins ? 'var(--talk-tint)' : 'transparent',
+                            fontFamily: 'Instrument Sans, sans-serif', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer', color: 'var(--text)',
+                          }}>
+                            {mins === 180 ? '3 hours' : mins === 240 ? '4 hours' : 'All day'}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8 }}>Who for?</div>
@@ -569,7 +597,7 @@ export default function RoomHub() {
                   onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.opacity = '0.8'}
                   onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.opacity = '1'}
                 >
-                  {selectedDuration === 'longer' ? 'Book in Google Calendar →' : 'Book now'}
+                  {[180,240,480,'longer'].includes(selectedDuration as any) ? 'Book in Google Calendar →' : 'Book now'}
                 </button>
               </div>
 
@@ -595,7 +623,7 @@ export default function RoomHub() {
                 <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
 
                 <div style={{ marginBottom: 20 }}>
-                  {[`${selectedDuration === 30 ? '30 minutes' : selectedDuration === 60 ? '1 hour' : ''}`, `By ${selectedBusiness}`].map((line, i) => (
+                  {[`${selectedDuration === 30 ? '30 minutes' : selectedDuration === 60 ? '1 hour' : selectedDuration === 180 ? '3 hours' : selectedDuration === 240 ? '4 hours' : selectedDuration === 480 ? 'All day' : ''}`, `${selectedBusiness}`].map((line, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: '1px 0' }}>
                       <span style={{ color: '#4a9a5e' }}>✓</span> {line}
                     </div>
