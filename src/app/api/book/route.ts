@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { JWT } from 'google-auth-library'
+import { toZonedTime } from 'date-fns-tz'
+import { availabilityCache } from '../cache'
 
 const TALKING_CALENDAR_ID = (process.env.NEXT_PUBLIC_TALKING_CALENDAR_ID || process.env.TALKING_CALENDAR_ID)!
 const BOARD_CALENDAR_ID   = (process.env.NEXT_PUBLIC_BOARD_CALENDAR_ID || process.env.BOARD_CALENDAR_ID)!
@@ -42,6 +44,11 @@ export async function POST(req: NextRequest) {
         end:   { dateTime: endDate.toISOString(),   timeZone: TIMEZONE },
       },
     })
+
+    // Invalidate the availability cache for this date so the next poll
+    // gets fresh data rather than a 60s stale response.
+    const dateStr = toZonedTime(startDate, TIMEZONE).toISOString().slice(0, 10)
+    availabilityCache.delete(dateStr)
 
     return NextResponse.json({ success: true })
   } catch (err) {
