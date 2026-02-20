@@ -14,10 +14,11 @@ type Room = 'talking' | 'board'
 type Duration = 30 | 60 | 180 | 240 | 480
 type ModalState = 'booking' | 'confirmed'
 
-interface BusyBlock { start: string; end: string; title: string }
+interface BusyBlock { start: string; end: string; title: string; eventId?: string }
 interface RoomData { busyBlocks: BusyBlock[]; freeNow: boolean; nextAvailable: string | null; error?: string }
 interface AvailabilityData { talkingRoom: RoomData; boardRoom: RoomData; date: string }
 interface BookingTarget { room: Room; slotStart: Date }
+interface ViewTarget { room: Room; block: BusyBlock }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -198,6 +199,8 @@ export default function RoomHub() {
   const [showPicker, setShowPicker]             = useState(false)
   const [showMoreDropdown, setShowMoreDropdown]  = useState(false)
   const [booking_error, setBookingError]        = useState<string | null>(null)
+  const [viewing, setViewing]                   = useState<ViewTarget | null>(null)
+  const [removing, setRemoving]                 = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
   const moreRef   = useRef<HTMLDivElement>(null)
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -319,6 +322,31 @@ export default function RoomHub() {
     downloadICS(booking.room, booking.slotStart, selectedDuration as number, selectedBusiness, currentDate)
   }
 
+  const handleRemove = async () => {
+    if (!viewing) return
+    setRemoving(true)
+    try {
+      const res = await fetch('/api/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ room: viewing.room, eventId: viewing.block.eventId }),
+      })
+      if (!res.ok) throw new Error('Remove failed')
+      // Optimistic update — remove block from state immediately
+      setData(prev => {
+        if (!prev) return prev
+        const key = viewing.room === 'talking' ? 'talkingRoom' : 'boardRoom'
+        return { ...prev, [key]: { ...prev[key], busyBlocks: prev[key].busyBlocks.filter(b => b.start !== viewing.block.start) } }
+      })
+      setViewing(null)
+    } catch {
+      // silently fail — block will re-appear on next poll
+      setViewing(null)
+    } finally {
+      setRemoving(false)
+    }
+  }
+
   const renderSlots = (room: Room) => {
     const rd = room === 'talking' ? data?.talkingRoom : data?.boardRoom
     const blocks = rd?.busyBlocks || []
@@ -341,13 +369,15 @@ export default function RoomHub() {
         const biz = extractBusiness(busyBlock.title)
         const c   = BUSINESS_BLOCK_COLORS[biz] || BUSINESS_BLOCK_COLORS['Booked']
         label = (
-          <div style={{
-            position: 'absolute', left: 3, right: 3, top: 2, height: h,
-            borderRadius: 4, background: c.bg, color: c.color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 10, fontWeight: 600, letterSpacing: '0.3px',
-            textTransform: 'uppercase', zIndex: 2, pointerEvents: 'none',
-          }}>
+          <div
+            onClick={(e) => { e.stopPropagation(); setViewing({ room, block: busyBlock }) }}
+            style={{
+              position: 'absolute', left: 3, right: 3, top: 2, height: h,
+              borderRadius: 4, background: c.bg, color: c.color,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 10, fontWeight: 600, letterSpacing: '0.3px',
+              textTransform: 'uppercase', zIndex: 2, cursor: 'pointer',
+            }}>
             {biz !== 'Booked' ? biz : ''}
           </div>
         )
@@ -702,6 +732,76 @@ export default function RoomHub() {
           </div>
         </div>
       )}
+
+      {/* ── View / Remove modal ── */}
+      {viewing && (() => {
+        const biz       = extractBusiness(viewing.block.title)
+        const c         = BUSINESS_COLORS[biz as Business] || { color: '#999', bg: 'rgba(120,120,120,0.1)', border: '#999' }
+        const start     = new Date(viewing.block.start)
+        const end       = new Date(viewing.block.end)
+        const durMins   = Math.round((end.getTime() - start.getTime()) / 60_000)
+        const durLabel  = durMins === 30 ? '30 minutes' : durMins === 60 ? '1 hour' : durMins === 180 ? '3 hours' : durMins === 240 ? '4 hours' : durMins >= 480 ? 'All day' : `${durMins} min`
+        const viewRoom  = viewing.room === 'talking' ? 'Talking Room' : 'Board Room'
+        const timeLabel = formatTime12(start)
+
+        return (
+          <div
+            onClick={() => setViewing(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <div style={{ width: 300 }} onClick={e => e.stopPropagation()}>
+              <div style={{
+                background: '#fff', borderRadius: 12,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)',
+                padding: '28px 24px 24px', position: 'relative',
+              }}>
+                <button onClick={() => setViewing(null)} style={{
+                  position: 'absolute', top: 14, right: 14, background: 'none', border: 'none',
+                  cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 4, display: 'flex',
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg>
+                </button>
+
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 4 }}>{viewRoom.toUpperCase()}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-1px', color: 'var(--text)', marginBottom: 2 }}>{timeLabel}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 24 }}>{formatDateHeading(currentDate)}</div>
+                <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
+
+                <div style={{ marginBottom: 24 }}>
+                  {[durLabel, biz !== 'Booked' ? biz : 'Unknown'].map((line, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, padding: '1px 0' }}>
+                      <span style={{ color: c.color }}>●</span>
+                      <span style={{ color: 'var(--text)' }}>{line}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--line)', margin: '0 -24px 20px' }} />
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setViewing(null)} style={{
+                    flex: 1, fontFamily: 'Instrument Sans, sans-serif',
+                    fontSize: 12, fontWeight: 600, padding: '9px 0', borderRadius: 6,
+                    border: '1.5px solid var(--line)', background: 'transparent', color: 'var(--text-muted)',
+                    cursor: 'pointer', transition: 'all 0.15s',
+                  }}>
+                    Edit
+                  </button>
+                  <button onClick={handleRemove} disabled={removing} style={{
+                    flex: 2, fontFamily: 'Instrument Sans, sans-serif',
+                    fontSize: 13, fontWeight: 600, padding: '9px 0', borderRadius: 6,
+                    border: 'none', background: removing ? 'var(--text-muted)' : 'var(--text)', color: '#fff',
+                    cursor: removing ? 'default' : 'pointer', transition: 'opacity 0.15s',
+                  }}>
+                    {removing ? 'Removing…' : 'Remove'}
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
     </div>
   )
